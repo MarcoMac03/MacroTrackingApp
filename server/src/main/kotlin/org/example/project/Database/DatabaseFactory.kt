@@ -7,29 +7,41 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.*
+import java.net.URI
 
 // Initialize the database when the server starts
 object DatabaseFactory {
     fun init() {
         val rawUrl = System.getenv("DATABASE_URL")
 
-        val finalUrl = if (rawUrl != null) {
-            if (rawUrl.startsWith("postgresql://")) {
-                rawUrl.replace("postgresql://", "jdbc:postgresql://")
-            } else {
-                rawUrl
-            }
-        } else {
-            "jdbc:postgresql://localhost:5432/postgres"
-        }
-
         val config = HikariConfig().apply {
             driverClassName = "org.postgresql.Driver"
-            jdbcUrl = finalUrl
 
-            if (rawUrl == null) {
-                username = "postgres"
-                password = "admin"
+            if (rawUrl != null) {
+                try {
+                    // Sostituiamo il protocollo per permettere a java.net.URI di parsare l'URL
+                    val uriString = rawUrl.replace("postgresql://", "http://")
+                    val uri = URI(uriString)
+
+                    val userInfo = uri.userInfo // Sarà nel formato "user:password"
+                    val parts = userInfo.split(":")
+                    val user = parts[0]
+                    val password = parts.drop(1).joinToString(":")
+
+                    val host = uri.host
+                    val port = if (uri.port != -1) ":${uri.port}" else ""
+                    val path = uri.path // es. "/postgres"
+
+                    jdbcUrl = "jdbc:postgresql://$host$port$path"
+                    username = user
+                    this.password = password
+
+                } catch (e: Exception) {
+                    println("Errore durante il parsing dell'URL, uso i parametri di fallback: ${e.message}")
+                    setupLocalFallback()
+                }
+            } else {
+                setupLocalFallback()
             }
 
             maximumPoolSize = 3
@@ -67,5 +79,11 @@ object DatabaseFactory {
                 }
             }
         }
+    }
+
+    private fun HikariConfig.setupLocalFallback() {
+        jdbcUrl = "jdbc:postgresql://localhost:5432/postgres"
+        username = "postgres"
+        password = "admin"
     }
 }

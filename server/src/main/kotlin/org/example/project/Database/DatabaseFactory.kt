@@ -19,21 +19,26 @@ object DatabaseFactory {
 
             if (rawUrl != null) {
                 try {
-                    // Sostituiamo il protocollo per permettere a java.net.URI di parsare l'URL
-                    val uriString = rawUrl.replace("postgresql://", "http://")
-                    val uri = URI(uriString)
+                    val cleanUrl = rawUrl.trim()
 
-                    val userInfo = uri.userInfo // Sarà nel formato "user:password"
-                    val parts = userInfo.split(":")
-                    val user = parts[0]
-                    val password = parts.drop(1).joinToString(":")
+                    val protocolRemoved = cleanUrl.replace("postgresql://", "")
 
-                    val host = uri.host
-                    val port = if (uri.port != -1) ":${uri.port}" else ""
-                    val path = uri.path // es. "/postgres"
+                    val parts = protocolRemoved.split("@")
 
-                    jdbcUrl = "jdbc:postgresql://$host$port$path"
-                    username = user
+                    val credentials = parts[0].split(":")
+                    val username = credentials[0]
+                    val password = credentials.drop(1).joinToString(":")
+
+                    val hostAndRest = parts[1].split("/")
+                    val hostAndPort = hostAndRest[0]
+                    val dbName = hostAndRest[1]
+
+                    val hostParts = hostAndPort.split(":")
+                    val host = hostParts[0]
+                    val port = if (hostParts.size > 1) ":${hostParts[1]}" else ""
+
+                    jdbcUrl = "jdbc:postgresql://$host$port/$dbName"
+                    this.username = username
                     this.password = password
 
                 } catch (e: Exception) {

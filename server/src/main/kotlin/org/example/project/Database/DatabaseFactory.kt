@@ -92,6 +92,13 @@ object DatabaseFactory {
                     it[age] = 23
                     it[phone] = null
                 }
+                User.insert {
+                    it[id] = 1
+                    it[name] = "Paolo"
+                    it[email] = "emailDiProvaPaolo@gmail.com"
+                    it[age] = 18
+                    it[phone] = null
+                }
             }
         }
     }

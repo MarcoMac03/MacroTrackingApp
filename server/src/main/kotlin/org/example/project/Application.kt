@@ -119,7 +119,7 @@ fun Application.module() {
             transaction {
                 val mealId = Meal.insert {
                     it[type] = request.type
-                    it[userId] = 1
+                    it[userId] = 0
                     it[date] = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
                 } get Meal.id
 

@@ -11,11 +11,27 @@ import org.jetbrains.exposed.sql.*
 // Initialize the database when the server starts
 object DatabaseFactory {
     fun init() {
+        val rawUrl = System.getenv("DATABASE_URL")
+
+        val finalUrl = if (rawUrl != null) {
+            if (rawUrl.startsWith("postgresql://")) {
+                rawUrl.replace("postgresql://", "jdbc:postgresql://")
+            } else {
+                rawUrl
+            }
+        } else {
+            "jdbc:postgresql://localhost:5432/postgres"
+        }
+
         val config = HikariConfig().apply {
             driverClassName = "org.postgresql.Driver"
-            jdbcUrl = "jdbc:postgresql://localhost:5432/postgres"
-            username = "postgres"
-            password = "admin"
+            jdbcUrl = finalUrl
+
+            if (rawUrl == null) {
+                username = "postgres"
+                password = "admin"
+            }
+
             maximumPoolSize = 3
             isAutoCommit = false
             transactionIsolation = "TRANSACTION_REPEATABLE_READ"

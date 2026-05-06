@@ -168,7 +168,6 @@ fun InsertMeal(onSave: () -> Unit) {
                 if(addedFoods.isNotEmpty()){
                     Button(
                         onClick = {
-
                             scope.launch {
                             try {
                                 val mealToSave = MealFoodInsert(
@@ -181,6 +180,7 @@ fun InsertMeal(onSave: () -> Unit) {
                                 }
                                 if(response.status == HttpStatusCode.Created) {
                                     Toast.makeText(context, "Meal Added", Toast.LENGTH_LONG).show()
+                                    println("Meal added correctly")
                                     onSave()
                                 }
                             } catch(e: Exception ) {

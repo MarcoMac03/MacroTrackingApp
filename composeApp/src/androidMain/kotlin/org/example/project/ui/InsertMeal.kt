@@ -1,6 +1,7 @@
 package org.example.project.ui
 
 import android.net.http.HttpResponseCache.install
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,6 +34,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import org.example.project.NetworkClient
 import org.example.project.models.MealFoodInsert
+import kotlin.coroutines.cancellation.CancellationException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +57,9 @@ fun InsertMeal(onSave: () -> Unit) {
             try {
                 searchResult = NetworkClient.client.get("${NetworkClient.BASE_URL}/foods?name=$searchQuery").body()
             } catch(e: Exception) {
-                println("Errore ricerca: ${e.message}")
+                if(e !is CancellationException) {
+                    Log.e("Network error", "Errore ricerca: ${e.message}", e)
+                }
             }
         } else {
             searchResult = emptyList()
@@ -168,24 +172,26 @@ fun InsertMeal(onSave: () -> Unit) {
                 if(addedFoods.isNotEmpty()){
                     Button(
                         onClick = {
+                            Log.d("Meal save", "Adding meal in DB")
                             scope.launch {
                             try {
                                 val mealToSave = MealFoodInsert(
                                     type = type,
                                     foodsId = addedFoods.map {it.id}
                                 )
+                                Log.d("Meal save", "Sending meal to server")
                                 val response = NetworkClient.client.post("${NetworkClient.BASE_URL}/meal") {
                                     contentType(ContentType.Application.Json)
                                     setBody(mealToSave)
                                 }
                                 if(response.status == HttpStatusCode.Created) {
                                     Toast.makeText(context, "Meal Added", Toast.LENGTH_LONG).show()
-                                    println("Meal added correctly")
+                                    Log.d("Meal save", "Meal added correctly")
                                     onSave()
                                 }
                             } catch(e: Exception ) {
                                 Toast.makeText(context, "Can't connect to server", Toast.LENGTH_SHORT).show()
-                                println("Errore: ${e.localizedMessage}")
+                                Log.e("Network error","Errore nella post: ${e.localizedMessage}")
                             }
                         }
                         },

@@ -119,8 +119,8 @@ fun Application.module() {
             transaction {
                 val mealId = Meal.insert {
                     it[type] = request.type
-                    //it[userId] = request.userId da prendere dalla sessione
-                    it[date] = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).toString()
+                    it[userId] = 1
+                    it[date] = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
                 } get Meal.id
 
                 request.foodsId.forEach{ foodId ->

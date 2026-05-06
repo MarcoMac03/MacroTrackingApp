@@ -7,7 +7,7 @@ import io.ktor.serialization.kotlinx.json.json
 
 object NetworkClient {
 
-    const val BASE_URL = "https://bagging-profile-oaf.ngrok-free.dev"
+    const val BASE_URL = "https://macrotrackingapp.onrender.com"
     val client = HttpClient {
         install(ContentNegotiation) { json() }
     }

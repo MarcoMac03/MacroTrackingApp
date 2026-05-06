@@ -9,4 +9,4 @@ FROM eclipse-temurin:21-jre
 EXPOSE 8080
 RUN mkdir /app
 COPY --from=build /home/gradle/src/server/build/libs/*.jar /app/MacroTrackingApp.jar
-ENTRYPOINT ["java","-jar","/app/MacroTrackingApp.jar"]
+ENTRYPOINT ["java","-Djava.net.preferIPv4Stack=true","-jar","/app/MacroTrackingApp.jar"]

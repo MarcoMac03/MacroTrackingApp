@@ -1,6 +1,7 @@
 package org.example.project
 
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -14,7 +15,6 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import io.ktor.serialization.kotlinx.json.*
-import io.ktor.server.plugins.contentnegotiation.*
 import kotlinx.serialization.json.Json
 import org.example.project.Database.Meal
 import org.example.project.Database.MealFood

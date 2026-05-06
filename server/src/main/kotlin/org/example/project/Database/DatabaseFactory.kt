@@ -59,7 +59,7 @@ object DatabaseFactory {
         Database.connect(ds)
 
         transaction {
-            SchemaUtils.create(Foods)
+            SchemaUtils.create(Foods, Meal, MealFood, User)
 
             if(Foods.selectAll().empty()) {
                 println("Inserimento manuale")
@@ -81,6 +81,16 @@ object DatabaseFactory {
                     this[Foods.fats] = food.fats
                     this[Foods.saturatedFats] = food.saturatedFats
                     this[Foods.fibers] = food.fibers
+                }
+            }
+            if(User.selectAll().empty()) {
+                println("Inserimento User")
+                User.insert {
+                    it[id] = 0
+                    it[name] = "Mac"
+                    it[email] = "emailDiProva@gmail.com"
+                    it[age] = 23
+                    it[phone] = null
                 }
             }
         }

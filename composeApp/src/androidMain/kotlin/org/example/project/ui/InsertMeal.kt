@@ -1,6 +1,5 @@
 package org.example.project.ui
 
-import android.net.http.HttpResponseCache.install
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,22 +13,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.launch
 import org.example.project.models.FoodRequest
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import org.example.project.NetworkClient
@@ -45,11 +45,14 @@ fun InsertMeal(onSave: () -> Unit) {
     val mealTypes = listOf("Colazione", "Pranzo", "Cena", "Spuntino")
     // tendina per selezionare il type
     var expanded by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("") }
     val addedFoods = remember { mutableStateListOf<FoodRequest>() }
+    var grams by remember { mutableDoubleStateOf(0.0) }
+    var showTypeError by remember { mutableStateOf(false) }
+    var food by remember { mutableStateOf(FoodRequest()) }
     // per autocompletamento mentre scrivo il cibo
     var searchQuery by remember { mutableStateOf("") }
+    var showGrams by remember { mutableStateOf(false) }
 
     var searchResult by remember { mutableStateOf<List<FoodRequest>>(emptyList()) }
     LaunchedEffect(searchQuery) {
@@ -116,103 +119,164 @@ fun InsertMeal(onSave: () -> Unit) {
                                 text = { Text(selectionOption) },
                                 onClick = {
                                     type = selectionOption
+                                    showTypeError = false
                                     expanded = false
                                 }
                             )
                         }
                     }
                 }
+                AnimatedVisibility(visible = showTypeError) {
+                    Text(text = "Select a type of meal", color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+                }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 if (addedFoods.isNotEmpty()) {
                     Text("Cibi nel pasto: ", color = MintGreen, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                     addedFoods.forEach { food ->
-                        Text(text = "- ${food.name}", color = TextWhite, modifier = Modifier.padding(vertical = 2.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "- ${food.name}, gr = ${food.grams}", color = TextWhite)
+                            IconButton(
+                                onClick = { addedFoods.remove(food) },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remove",
+                                    tint = Color.Gray
+                                )
+                            }
+                        }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text("Aggiungi cibo", color = Color.Gray) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MintGreen,
-                        unfocusedBorderColor = Color.Gray,
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                    )
-                )
+                Column {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it; showGrams = false },
+                            label = { Text("Aggiungi cibo", color = Color.Gray) },
+                            modifier = Modifier.weight(1f),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MintGreen,
+                                unfocusedBorderColor = Color.Gray,
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite,
+                            )
+                        )
+                        if (showGrams) {
+                            BadgeGrams(
+                                onGramsChange = { grams = it },
+                                modifier = Modifier.width(90.dp)
+                            )
+                        }
+                    }
 
-                if (searchResult.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 150.dp)
-                            .padding(top = 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
-                    ) {
-                        LazyColumn {
-                            items(searchResult) { result ->
-                                Text(
-                                    text = result.name,
-                                    color = TextWhite,
-                                    modifier = Modifier.fillMaxWidth().clickable {
-                                        addedFoods.add(result)
-                                        searchQuery = ""
-                                    }.padding(16.dp)
-                                )
+                    if (searchResult.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 150.dp).padding(top = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
+                        ) {
+                            LazyColumn {
+                                items(searchResult) { result ->
+                                    Text(
+                                        text = result.name,
+                                        color = TextWhite,
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            food = result
+                                            showGrams = true
+                                            searchQuery = "" }.padding(16.dp)
+                                    )
+                                }
                             }
                         }
                     }
+
+                    if(showGrams) {
+                        Button(
+                            onClick = {
+                                addedFoods.add(food.copy(grams = grams))
+                                grams = 0.0
+                                showGrams = false
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(top= 4.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Add", color = DarkBackground, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
+
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if(addedFoods.isNotEmpty()){
-                    Button(
-                        onClick = {
-                            Log.d("Meal save", "Adding meal in DB")
+                Button(
+                    onClick = {
+                        if(addedFoods.isEmpty()) {
+                            onSave()
+                        } else {
                             scope.launch {
-                            try {
-                                val mealToSave = MealFoodInsert(
-                                    type = type,
-                                    foodsId = addedFoods.map {it.id}
-                                )
-                                Log.d("Meal save", "Sending meal to server")
-                                val response = NetworkClient.client.post("${NetworkClient.BASE_URL}/meal") {
-                                    contentType(ContentType.Application.Json)
-                                    setBody(mealToSave)
+                                if(type.isEmpty()) {
+                                    showTypeError = true
+                                    return@launch
                                 }
-                                if(response.status == HttpStatusCode.Created) {
-                                    Toast.makeText(context, "Meal Added", Toast.LENGTH_LONG).show()
-                                    Log.d("Meal save", "Meal added correctly")
-                                    onSave()
+                                try {
+                                    val mealToSave = MealFoodInsert(
+                                        type = type,
+                                        foodsId = addedFoods.map {it.id},
+                                        quantity = addedFoods.map {it.grams}
+                                    )
+                                    Log.d("Meal save", "Sending meal to server")
+                                    val response = NetworkClient.client.post("${NetworkClient.BASE_URL}/meal") {
+                                        contentType(ContentType.Application.Json)
+                                        setBody(mealToSave)
+                                    }
+                                    if(response.status == HttpStatusCode.Created) {
+                                        Toast.makeText(context, "Meal Added", Toast.LENGTH_LONG).show()
+                                        Log.d("Meal save", "Meal added correctly")
+                                        onSave()
+                                    }
+                                } catch(e: Exception ) {
+                                    Toast.makeText(context, "Can't connect to server", Toast.LENGTH_SHORT).show()
+                                    Log.e("Network error","Errore nella post: ${e.localizedMessage}")
                                 }
-                            } catch(e: Exception ) {
-                                Toast.makeText(context, "Can't connect to server", Toast.LENGTH_SHORT).show()
-                                Log.e("Network error","Errore nella post: ${e.localizedMessage}")
                             }
                         }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Save", color = DarkBackground, fontWeight = FontWeight.Bold)
-                    }
-                } else {
-                    Button(
-                        onClick = { onSave() },
-                        colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Back", color = DarkBackground, fontWeight = FontWeight.Bold)
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(text = if(addedFoods.isEmpty()) "Back" else "Save", color = DarkBackground, fontWeight = FontWeight.Bold)
                 }
-
             }
         }
     }
+}
+
+@Composable
+fun BadgeGrams(onGramsChange: (Double) -> Unit, modifier: Modifier = Modifier) {
+    var g by remember { mutableStateOf("") }
+
+    OutlinedTextField(
+        value = g,
+        onValueChange = { newValue ->
+            if (newValue.isEmpty() || newValue.matches(Regex("""^\d*\.?\d*$"""))) {
+                g = newValue
+                onGramsChange(newValue.toDoubleOrNull() ?: 0.0)
+            } },
+        label = { Text("Peso (g)", color = Color.Gray) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        modifier = modifier,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MintGreen,
+            unfocusedBorderColor = Color.Gray,
+            focusedTextColor = TextWhite,
+            unfocusedTextColor = TextWhite,)
+    )
 }

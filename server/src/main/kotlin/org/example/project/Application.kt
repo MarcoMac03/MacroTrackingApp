@@ -116,6 +116,14 @@ fun Application.module() {
 
         post("/meal") {
             val request = call.receive<MealFoodInsert>()
+            if(request.type.isBlank() || request.foodsId.isEmpty()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing information")
+                return@post
+            }
+            if(request.foodsId.size != request.quantity.size) {
+                call.respond(HttpStatusCode.BadRequest, "Quantity must be the same size as foods")
+                return@post
+            }
             transaction {
                 val mealId = Meal.insert {
                     it[type] = request.type
@@ -123,11 +131,11 @@ fun Application.module() {
                     it[date] = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
                 } get Meal.id
 
-                request.foodsId.forEach{ foodId ->
+                request.foodsId.forEachIndexed { index, currentFood ->
                     MealFood.insert {
                         it[this.mealId] = mealId
-                        it[this.foodId] = foodId
-
+                        it[this.foodId] = currentFood
+                        it[this.quantity] = request.quantity[index]
                     }
                 }
             }

@@ -27,6 +27,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
@@ -43,20 +45,19 @@ fun InsertMeal(onSave: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     val mealTypes = listOf("Colazione", "Pranzo", "Cena", "Spuntino")
-    // tendina per selezionare il type
     var expanded by remember { mutableStateOf(false) }
     var type by remember { mutableStateOf("") }
     val addedFoods = remember { mutableStateListOf<FoodRequest>() }
     var grams by remember { mutableDoubleStateOf(0.0) }
     var showTypeError by remember { mutableStateOf(false) }
     var food by remember { mutableStateOf(FoodRequest()) }
-    // per autocompletamento mentre scrivo il cibo
     var searchQuery by remember { mutableStateOf("") }
     var showGrams by remember { mutableStateOf(false) }
+    val gramsFocusRequester = remember { FocusRequester() }
 
     var searchResult by remember { mutableStateOf<List<FoodRequest>>(emptyList()) }
     LaunchedEffect(searchQuery) {
-        if(searchQuery.length > 2) {
+        if (!showGrams && searchQuery.length > 1) {
             try {
                 searchResult = NetworkClient.client.get("${NetworkClient.BASE_URL}/foods?name=$searchQuery").body()
             } catch(e: Exception) {
@@ -71,7 +72,7 @@ fun InsertMeal(onSave: () -> Unit) {
 
     Column(
         modifier = Modifier.fillMaxSize().background(DarkBackground).padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally//, verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = "Add Meal",
@@ -127,21 +128,26 @@ fun InsertMeal(onSave: () -> Unit) {
                     }
                 }
                 AnimatedVisibility(visible = showTypeError) {
-                    Text(text = "Select a type of meal", color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+                    Text(
+                        text = "Select a type of meal",
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 if (addedFoods.isNotEmpty()) {
                     Text("Cibi nel pasto: ", color = MintGreen, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                    addedFoods.forEach { food ->
+                    addedFoods.forEach { addedFood ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "- ${food.name}, gr = ${food.grams}", color = TextWhite)
+                            Text(text = "- ${addedFood.name}, gr = ${addedFood.grams}", color = TextWhite)
                             IconButton(
-                                onClick = { addedFoods.remove(food) },
+                                onClick = { addedFoods.remove(addedFood) },
                                 modifier = Modifier.size(20.dp)
                             ) {
                                 Icon(
@@ -156,11 +162,14 @@ fun InsertMeal(onSave: () -> Unit) {
                 }
 
                 Column {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it; showGrams = false },
-                            label = { Text("Aggiungi cibo", color = Color.Gray) },
+                            label = { Text("Aggiungi cibo", color = Color.Gray, fontSize = 14.sp) },
                             modifier = Modifier.weight(1f),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MintGreen,
@@ -172,6 +181,7 @@ fun InsertMeal(onSave: () -> Unit) {
                         if (showGrams) {
                             BadgeGrams(
                                 onGramsChange = { grams = it },
+                                focusRequester = gramsFocusRequester,
                                 modifier = Modifier.width(90.dp)
                             )
                         }
@@ -189,22 +199,25 @@ fun InsertMeal(onSave: () -> Unit) {
                                         color = TextWhite,
                                         modifier = Modifier.fillMaxWidth().clickable {
                                             food = result
+                                            searchQuery = result.name
                                             showGrams = true
-                                            searchQuery = "" }.padding(16.dp)
+                                            searchResult = emptyList()
+                                        }.padding(16.dp)
                                     )
                                 }
                             }
                         }
                     }
 
-                    if(showGrams) {
+                    if (showGrams) {
                         Button(
                             onClick = {
                                 addedFoods.add(food.copy(grams = grams))
                                 grams = 0.0
+                                searchQuery = ""
                                 showGrams = false
                             },
-                            modifier = Modifier.fillMaxWidth().padding(top= 4.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -217,33 +230,33 @@ fun InsertMeal(onSave: () -> Unit) {
 
                 Button(
                     onClick = {
-                        if(addedFoods.isEmpty()) {
+                        if (addedFoods.isEmpty()) {
                             onSave()
                         } else {
                             scope.launch {
-                                if(type.isEmpty()) {
+                                if (type.isEmpty()) {
                                     showTypeError = true
                                     return@launch
                                 }
                                 try {
                                     val mealToSave = MealFoodInsert(
                                         type = type,
-                                        foodsId = addedFoods.map {it.id},
-                                        quantity = addedFoods.map {it.grams}
+                                        foodsId = addedFoods.map { it.id },
+                                        quantity = addedFoods.map { it.grams }
                                     )
                                     Log.d("Meal save", "Sending meal to server")
                                     val response = NetworkClient.client.post("${NetworkClient.BASE_URL}/meal") {
                                         contentType(ContentType.Application.Json)
                                         setBody(mealToSave)
                                     }
-                                    if(response.status == HttpStatusCode.Created) {
+                                    if (response.status == HttpStatusCode.Created) {
                                         Toast.makeText(context, "Meal Added", Toast.LENGTH_LONG).show()
                                         Log.d("Meal save", "Meal added correctly")
                                         onSave()
                                     }
-                                } catch(e: Exception ) {
+                                } catch(e: Exception) {
                                     Toast.makeText(context, "Can't connect to server", Toast.LENGTH_SHORT).show()
-                                    Log.e("Network error","Errore nella post: ${e.localizedMessage}")
+                                    Log.e("Network error", "Errore nella post: ${e.localizedMessage}")
                                 }
                             }
                         }
@@ -252,7 +265,7 @@ fun InsertMeal(onSave: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text(text = if(addedFoods.isEmpty()) "Back" else "Save", color = DarkBackground, fontWeight = FontWeight.Bold)
+                    Text(text = if (addedFoods.isEmpty()) "Back" else "Save", color = DarkBackground, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -260,8 +273,16 @@ fun InsertMeal(onSave: () -> Unit) {
 }
 
 @Composable
-fun BadgeGrams(onGramsChange: (Double) -> Unit, modifier: Modifier = Modifier) {
+fun BadgeGrams(
+    onGramsChange: (Double) -> Unit,
+    focusRequester: FocusRequester,
+    modifier: Modifier = Modifier
+) {
     var g by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     OutlinedTextField(
         value = g,
@@ -269,14 +290,16 @@ fun BadgeGrams(onGramsChange: (Double) -> Unit, modifier: Modifier = Modifier) {
             if (newValue.isEmpty() || newValue.matches(Regex("""^\d*\.?\d*$"""))) {
                 g = newValue
                 onGramsChange(newValue.toDoubleOrNull() ?: 0.0)
-            } },
-        label = { Text("Peso (g)", color = Color.Gray) },
+            }
+        },
+        label = { Text("g", color = Color.Gray, fontSize = 12.sp) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        modifier = modifier,
+        modifier = modifier.focusRequester(focusRequester),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MintGreen,
             unfocusedBorderColor = Color.Gray,
             focusedTextColor = TextWhite,
-            unfocusedTextColor = TextWhite,)
+            unfocusedTextColor = TextWhite,
+        )
     )
 }

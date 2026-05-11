@@ -1,76 +1,106 @@
 package org.example.project
-import org.example.project.ui.FoodScreen
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeContentPadding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.jetbrains.compose.resources.painterResource
+import org.example.project.ui.*
 
-import macrotracking.composeapp.generated.resources.Res
-import macrotracking.composeapp.generated.resources.compose_multiplatform
-import org.example.project.ui.DarkBackground
-import org.example.project.ui.InsertMeal
-import org.example.project.ui.MintGreen
+enum class Screen { Home, Profile, InsertMeal }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Preview
 fun App() {
-    var addMeal by remember { mutableStateOf(false) }
+    var currentScreen by remember { mutableStateOf(Screen.Home) }
 
     MaterialTheme(
         colorScheme = darkColorScheme(),
-        typography = Typography()
+        typography = AppTypography,
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().background(DarkBackground).padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally//, verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "FitPath",
-                color = MintGreen,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Serif,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 16.dp, top = 32.dp)
+        when (currentScreen) {
+            Screen.Home -> HomeScreen(
+                onNavigateToProfile = { currentScreen = Screen.Profile },
+                onAddMeal = { currentScreen = Screen.InsertMeal }
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Screen.Profile -> ProfileArea(
+                onBack = { currentScreen = Screen.Home }
+            )
+            Screen.InsertMeal -> InsertMeal(
+                onSave = { currentScreen = Screen.Home }
+            )
+        }
+    }
+}
 
-            if(addMeal)
-                InsertMeal(onSave = { addMeal = false })
-            else {
-                Button(
-                    onClick = { addMeal = !addMeal },
-                    colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Add Meal")
-                }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(
+    onNavigateToProfile: () -> Unit,
+    onAddMeal: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "FitPath",
+                        color = MintGreen,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToProfile) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color.Gray.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Profile",
+                                tint = MintGreen,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
+            )
+        },
+        containerColor = DarkBackground
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = onAddMeal,
+                colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Add Meal", color = DarkBackground, fontWeight = FontWeight.Bold)
             }
         }
     }

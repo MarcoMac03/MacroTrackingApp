@@ -10,7 +10,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.example.project.Database.DatabaseFactory
 import org.example.project.Database.Foods
-import org.example.project.models.FoodRequest
+import org.example.project.models.*
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -18,14 +18,13 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import org.example.project.Database.Meal
 import org.example.project.Database.MealFood
-import org.example.project.models.MealFoodInsert
-import org.example.project.models.MealInsert
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
 import org.jetbrains.exposed.sql.lowerCase
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.Clock
 import kotlinx.datetime.toLocalDateTime
+import org.example.project.Database.User
 import org.example.project.mapper.toFoodRequest
+import org.jetbrains.exposed.sql.and
 
 fun main() {
     val port = System.getenv("PORT")?.toInt() ?: 8080
@@ -142,7 +141,30 @@ fun Application.module() {
             call.respond(HttpStatusCode.Created, "Pasto inserito correttamente")
         }
 
-        post("7meal/foods/{foods}") {
+        get("/userMeals") {
+            val userId = call.request.queryParameters["userId"] ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing userId")
+            val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+
+            val exist = transaction { !User.selectAll().where { User.id eq userId.toInt() }.empty()}
+            if(!exist) {
+                return@get call.respond(HttpStatusCode.NotFound, "User not found")
+            }
+
+            val dailyStats = transaction {
+                val mealCount = Meal.select(Meal.id).where { (Meal.userId eq userId.toInt()) and (Meal.date eq today)}.count()
+
+                val calories = (Meal innerJoin MealFood innerJoin Foods)
+                    .select(Foods.calories, MealFood.quantity)
+                    .where { (Meal.userId eq userId.toInt()) and (Meal.date eq today) }
+                    .map { row -> (row[Foods.calories] * row[MealFood.quantity]) / 100.0 }
+                    .sum()
+
+                DailyStats(mealCount.toInt(), calories)
+            }
+            call.respond(HttpStatusCode.OK, dailyStats)
+        }
+
+        post("/meal/foods/{foods}") {
             //val request = call.receive<MealFoodInsert[]>()
         }
     }
